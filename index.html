@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="cs" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game play</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef3f1;
+    --bg-glow: radial-gradient(ellipse 80% 60% at 15% 0%, #c8ebe3 0%, transparent 55%),
+               radial-gradient(ellipse 70% 50% at 90% 10%, #f3e0c8 0%, transparent 50%),
+               linear-gradient(180deg, #eef3f1 0%, #e4ebe8 100%);
+    --panel: #f7faf8;
+    --text: #17221f;
+    --muted: #5f6d68;
+    --border: #b7c5bf;
+    --accent: #0d8a72;
+    --accent-text: #ffffff;
+    --brand: #0a6b58;
+    --danger: #e5566b;
+    --chip-border: #4db8a0;
+    --chip-text: #0d8a72;
+    --shadow: 0 10px 40px rgba(23, 34, 31, .12);
+    --table-bg: var(--panel);
+    --frame: #0d8a72;
+    --frame-soft: color-mix(in srgb, var(--frame) 28%, transparent);
+  }
+  :root[data-theme="dark"] {
+    --bg: #101816;
+    --bg-glow: radial-gradient(ellipse 70% 55% at 12% 0%, #1a3d34 0%, transparent 55%),
+               radial-gradient(ellipse 60% 45% at 92% 8%, #3a2e1c 0%, transparent 50%),
+               linear-gradient(180deg, #101816 0%, #0c1210 100%);
+    --panel: #1a2421;
+    --text: #e7efec;
+    --muted: #9aaba4;
+    --border: #334540;
+    --accent: #2ec9a8;
+    --accent-text: #06241d;
+    --brand: #5ee0c2;
+    --danger: #e0556a;
+    --chip-border: #2a7a68;
+    --chip-text: #7fe0c8;
+    --shadow: 0 10px 40px rgba(0, 0, 0, .55);
+    --table-bg: var(--panel);
+    --frame: #2ec9a8;
+    --frame-soft: color-mix(in srgb, var(--frame) 22%, transparent);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--bg);
+    background-image: var(--bg-glow);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: "Figtree", system-ui, sans-serif;
+    transition: background .25s, color .25s, padding-right .35s ease;
+  }
+
+  /* ---------- app shell ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 16px 28px; flex-wrap: wrap;
+    padding: 14px 22px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    background: color-mix(in srgb, var(--panel) 72%, transparent);
+    backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand {
+    margin: 0; font-family: "Sora", sans-serif;
+    font-size: clamp(1.55rem, 3.5vw, 2.05rem); font-weight: 800;
+    letter-spacing: -.03em; color: var(--brand);
+    background: none; border: 0; padding: 0; cursor: pointer;
+    animation: brandIn .7s cubic-bezier(.2, .9, .3, 1) both;
+  }
+  .brand:hover, .brand:focus-visible { color: var(--accent); outline: none; }
+  @keyframes brandIn {
+    from { opacity: 0; transform: translateY(-8px); letter-spacing: .08em; }
+    to { opacity: 1; transform: none; letter-spacing: -.03em; }
+  }
+  .games-nav {
+    display: flex; align-items: center; gap: 6px; flex: 1; flex-wrap: wrap;
+  }
+  .nav-game {
+    font: inherit; font-weight: 600; font-size: .95rem;
+    background: transparent; color: var(--muted);
+    border: 1px solid transparent; border-radius: 999px;
+    padding: 7px 14px; cursor: pointer;
+    transition: color .2s, background .2s, border-color .2s;
+  }
+  .nav-game:hover { color: var(--text); border-color: var(--border); }
+  .nav-game.active {
+    color: var(--accent-text); background: var(--accent); border-color: var(--accent);
+  }
+  .topbar-end { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .icon-btn {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 8px 14px; font-size: .95rem; cursor: pointer; font-family: inherit;
+  }
+  .icon-btn:hover { border-color: var(--accent); }
+
+  .home-view {
+    min-height: calc(100dvh - 78px);
+    display: grid; place-items: center;
+    padding: 32px 20px 56px;
+  }
+  .play-frame {
+    position: relative;
+    width: min(920px, 100%);
+    min-height: min(52vh, 420px);
+    display: grid; place-items: center;
+    padding: clamp(40px, 8vw, 72px);
+    border: 2px solid var(--frame);
+    background:
+      linear-gradient(135deg, var(--frame-soft), transparent 40%),
+      color-mix(in srgb, var(--panel) 88%, transparent);
+    box-shadow: var(--shadow);
+    animation: frameIn .85s cubic-bezier(.2, .9, .25, 1) both;
+  }
+  .play-frame::before, .play-frame::after {
+    content: ""; position: absolute; width: 28px; height: 28px;
+    border: 3px solid var(--frame); pointer-events: none;
+  }
+  .play-frame::before { top: 10px; left: 10px; border-right: 0; border-bottom: 0; }
+  .play-frame::after { bottom: 10px; right: 10px; border-left: 0; border-top: 0; }
+  .play-frame .corner-tr, .play-frame .corner-bl {
+    position: absolute; width: 28px; height: 28px;
+    border: 3px solid var(--frame); pointer-events: none;
+  }
+  .play-frame .corner-tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; }
+  .play-frame .corner-bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; }
+  .play-invite {
+    margin: 0; text-align: center;
+    font-family: "Sora", sans-serif;
+    font-size: clamp(2.4rem, 9vw, 5.2rem); font-weight: 800;
+    letter-spacing: -.04em; line-height: 1.05; color: var(--text);
+    animation: invitePulse 3.2s ease-in-out infinite;
+  }
+  @keyframes frameIn {
+    from { opacity: 0; transform: scale(.94) translateY(18px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes invitePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.025); }
+  }
+
+  .game-view {
+    max-width: 1200px; margin: 0 auto;
+    padding: 18px 20px 40px;
+    animation: gameIn .45s cubic-bezier(.2, .9, .3, 1) both;
+  }
+  @keyframes gameIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+  }
+  .game-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .game-head h2 {
+    margin: 0; font-family: "Sora", sans-serif;
+    font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 700;
+    letter-spacing: -.02em;
+  }
+  .game-toolbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .game-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .game-layout { grid-template-columns: 1fr; }
+  }
+  [hidden] { display: none !important; }
+
+  /* wheel */
+  .wheel-wrap {
+    position: relative; width: 100%; max-width: 640px; margin: 0 auto;
+    aspect-ratio: 1 / 1;
+  }
+  #wheel { width: 100%; height: 100%; display: block; cursor: pointer; border-radius: 50%; box-shadow: var(--shadow); }
+  /* ukazatel nahoře — jako studio Máme rádi Česko */
+  .pointer {
+    position: absolute; left: 50%; top: -6px; transform: translateX(-50%);
+    width: 0; height: 0; z-index: 2;
+    border-left: 16px solid transparent; border-right: 16px solid transparent;
+    border-top: 36px solid #e11d2e;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,.45));
+    pointer-events: none;
+  }
+  .pointer::after {
+    content: ""; position: absolute; left: -6px; top: -36px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #f5d76e; border: 2px solid #b8860b;
+  }
+  .hub {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: rgba(20, 22, 27, .72); color: #fff;
+    padding: 10px 16px; border-radius: 10px; font-size: clamp(.85rem, 2.2vw, 1.15rem);
+    pointer-events: none; white-space: nowrap;
+    transition: opacity .3s; z-index: 1;
+  }
+  .hub.hidden { opacity: 0; }
+
+  /* side panel */
+  .panel { display: flex; flex-direction: column; gap: 14px; }
+  .btn {
+    border: 0; border-radius: 8px; cursor: pointer; font: inherit; font-size: 1rem;
+    padding: 10px 22px; color: #fff;
+  }
+  .btn-primary {
+    background: var(--accent); color: var(--accent-text);
+    font-size: 1.2rem; font-weight: 700; padding: 14px 22px; width: 100%;
+  }
+  .btn-primary:disabled,
+  .btn-ghost:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-danger { background: var(--danger); padding: 6px 12px; font-size: .8rem; }
+  .btn-ghost {
+    background: transparent; color: var(--muted); border: 1px solid var(--border);
+    padding: 7px 14px; font-size: .85rem;
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+  .btn-text {
+    background: none; border: 0; padding: 0; margin: 0;
+    color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .btn-text:hover { color: var(--danger); }
+  .btn-secondary-action { width: 100%; justify-content: center; }
+
+  textarea {
+    width: 100%; min-height: 340px; height: 38vh; max-height: 520px; resize: vertical;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; font: inherit; line-height: 1.5;
+  }
+  textarea::placeholder { color: color-mix(in srgb, var(--muted) 75%, transparent); }
+  textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--frame-soft); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .count { color: var(--muted); font-size: .8rem; letter-spacing: .02em; }
+  .lists-block { display: flex; flex-direction: column; gap: 8px; }
+  .lists-label {
+    font-size: .75rem; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .stage-hint {
+    margin: 10px 0 0; text-align: center; color: var(--muted); font-size: .95rem;
+  }
+  .turn-banner {
+    margin: 12px 0 0; text-align: center;
+    font-size: 1.15rem; font-weight: 700; color: var(--text);
+    letter-spacing: .02em;
+  }
+  .turn-banner strong { color: var(--accent); }
+  .players-field {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    font-size: .9rem; color: var(--muted);
+  }
+  .players-field input {
+    width: 4.5rem; padding: 8px 10px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    font: inherit; text-align: center;
+  }
+  .players-field input:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--frame-soft);
+  }
+  .history {
+    display: flex; flex-direction: column; gap: 10px;
+    width: 100%; margin-top: 28px; font-size: .9rem; color: var(--muted);
+  }
+  .history-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  .history h3 {
+    margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--text);
+  }
+  .history-empty { margin: 0; }
+  .history-scroll {
+    max-height: min(40vh, 420px); overflow: auto;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--table-bg);
+  }
+  .history table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .history th, .history td { padding: 6px 10px; text-align: left; vertical-align: baseline; }
+  .history thead th {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--table-bg); color: var(--text); font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .history tbody tr + tr td { border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+  .history .score { color: var(--text); white-space: nowrap; overflow-wrap: anywhere; }
+  .th-sort {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: none; border: 0; padding: 0; margin: 0;
+    color: inherit; font: inherit; cursor: pointer; white-space: nowrap;
+  }
+  .th-sort:hover, .th-sort:focus-visible { color: var(--accent); outline: none; }
+  .th-sort .arrow { font-size: .7rem; }
+  .history .num { width: 1%; text-align: right; white-space: nowrap; font-weight: 600; color: var(--text); }
+  .history .when { width: 1%; white-space: nowrap; font-size: .8rem; }
+
+  .seg-btn {
+    background: none; border: 0; color: var(--text); font: inherit; font-size: .95rem;
+    padding: 7px 14px; cursor: pointer; transition: background .2s, color .2s;
+  }
+  .seg-btn:hover { color: var(--accent); }
+  .seg-btn.active, .seg-btn.active:hover { background: var(--accent); color: var(--accent-text); }
+
+  .preset-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .preset-tabs .seg-btn {
+    font-size: .82rem; padding: 4px 12px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--panel);
+  }
+  .preset-tabs .seg-btn.active, .preset-tabs .seg-btn.active:hover {
+    background: var(--accent); border-color: var(--accent); color: var(--accent-text);
+  }
+  .preset-tabs .seg-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .preset-tabs .seg-btn:disabled:hover { color: var(--text); }
+  .preset-tabs .seg-action { padding: 4px 10px; }
+  .preset-tabs .seg-add {
+    border-style: dashed; color: var(--muted); font-weight: 600;
+  }
+  .preset-name {
+    font: inherit; font-size: .82rem; width: 9.5em; padding: 4px 12px;
+    border: 1px solid var(--accent); border-radius: 999px;
+    background: var(--panel); color: var(--text); outline: none;
+  }
+
+  /* přechod kolo ↔ ruleta */
+  .wheel-wrap { perspective: 1400px; }
+  .wheel-face, .roulette-face, .cards-face, .dice-face { position: absolute; inset: 0; }
+  .cards-face { perspective: 1200px; }
+  .roulette-face, .cards-face, .dice-face {
+    cursor: pointer;
+    transform: rotateY(-90deg) scale(.4); visibility: hidden; pointer-events: none;
+    transition: transform .7s cubic-bezier(.5, 0, .2, 1), visibility 0s .7s;
+  }
+  .wheel-wrap.mode-roulette .roulette-face,
+  .wheel-wrap.mode-cards .cards-face,
+  .wheel-wrap.mode-dice .dice-face {
+    transform: none; visibility: visible; pointer-events: auto;
+    transition: transform .7s cubic-bezier(.5, 0, .2, 1) .15s, visibility 0s;
+  }
+  #roulette { width: 100%; height: 100%; display: block; border-radius: 50%; box-shadow: var(--shadow); }
+  .wheel-face {
+    transition: transform .7s cubic-bezier(.5, 0, .2, 1) .15s, visibility 0s;
+  }
+  .wheel-wrap.mode-roulette .wheel-face,
+  .wheel-wrap.mode-cards .wheel-face,
+  .wheel-wrap.mode-dice .wheel-face {
+    transform: rotateY(90deg) scale(.5); visibility: hidden; pointer-events: none;
+    transition: transform .7s cubic-bezier(.5, 0, .2, 1), visibility 0s .7s;
+  }
+  .stage-caption {
+    position: absolute; left: 0; right: 0; bottom: 2%; text-align: center;
+    color: var(--muted); font-size: 1.05rem; pointer-events: none;
+    opacity: 0; transition: opacity .4s;
+  }
+  .wheel-wrap.mode-roulette .stage-caption,
+  .wheel-wrap.mode-cards .stage-caption,
+  .wheel-wrap.mode-dice .stage-caption { opacity: 1; transition-delay: .6s; }
+  .wheel-wrap.mode-dice .stage-caption { color: rgba(255,255,255,.85); }
+
+  /* karty */
+  #deckBox { position: absolute; inset: 0; }
+  .card {
+    position: absolute; left: 50%; top: 50%;
+    width: var(--cw, 160px); aspect-ratio: 5 / 7;
+    transform-style: preserve-3d; will-change: transform;
+  }
+  .card-face {
+    position: absolute; inset: 0; border-radius: 10px; backface-visibility: hidden;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .35); border: 1px solid rgba(0, 0, 0, .3);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card-back {
+    background: repeating-linear-gradient(45deg, #1d4ed8 0 8px, #2f6bf0 8px 16px);
+    border: calc(var(--cw, 160px) * .05) solid #fff;
+    color: #fff; font-size: calc(var(--cw, 160px) * .4); font-weight: 700;
+  }
+  .card-front {
+    background: #fffdf7; color: #1b1b1f; transform: rotateY(180deg);
+    padding: 8% 7%; text-align: center; font-weight: 700;
+  }
+  .card-front.is-red { color: #c41e3a; }
+  .card-front.is-black { color: #1b1b1f; }
+  .card-front .corner {
+    position: absolute; line-height: 1.05; text-align: center;
+    font-size: calc(var(--cw, 160px) * .14);
+  }
+  .card-front .corner .suit { display: block; font-size: .95em; }
+  .card-front .tl { top: 5%; left: 8%; }
+  .card-front .br { bottom: 5%; right: 8%; transform: rotate(180deg); }
+  .card-center-suit {
+    font-size: calc(var(--cw, 160px) * .42); line-height: 1;
+  }
+
+  /* kostky */
+  .dice-face {
+    cursor: pointer;
+    display: grid; place-items: center;
+    background:
+      radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.12), transparent 55%),
+      linear-gradient(160deg, #1a4a7a 0%, #0f3558 55%, #0a243c 100%);
+    border-radius: 50%;
+    box-shadow: var(--shadow), inset 0 0 60px rgba(0,0,0,.35);
+  }
+  .dice-table {
+    display: flex; align-items: center; justify-content: center;
+    gap: clamp(14px, 4vw, 28px); perspective: 900px;
+  }
+  .die {
+    --ds: clamp(56px, 12vw, 88px);
+    width: var(--ds); height: var(--ds);
+    position: relative; transform-style: preserve-3d;
+    transform: rotateX(-18deg) rotateY(28deg);
+  }
+  .die.rolling { animation: dieToss 1.15s cubic-bezier(.2, .7, .2, 1) both; }
+  @keyframes dieToss {
+    0% { transform: translateY(-40%) rotateX(-20deg) rotateY(0) rotateZ(0); }
+    35% { transform: translateY(-90%) rotateX(280deg) rotateY(-160deg) rotateZ(90deg); }
+    70% { transform: translateY(-10%) rotateX(520deg) rotateY(300deg) rotateZ(-40deg); }
+    100% { transform: translateY(0) rotateX(-18deg) rotateY(28deg) rotateZ(0); }
+  }
+  .die-inner {
+    width: 100%; height: 100%; position: absolute; inset: 0;
+    transform-style: preserve-3d;
+  }
+  .die-face {
+    position: absolute; inset: 0;
+    background: #f7f2ea;
+    border: 2px solid #c8b8a0;
+    border-radius: 12%;
+    display: grid; place-items: center;
+    box-shadow: inset 0 0 10px rgba(0,0,0,.08);
+    backface-visibility: hidden;
+  }
+  .die-face .pips {
+    width: 72%; height: 72%;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    gap: 4%;
+  }
+  .die-face .pip {
+    width: 100%; aspect-ratio: 1; border-radius: 50%;
+    background: #1a1520; justify-self: center; align-self: center;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.25);
+  }
+  .die-face[data-v="1"] .pips { grid-template-areas: ". . ." ". a ." ". . ."; }
+  .die-face[data-v="1"] .pip:nth-child(1) { grid-area: a; }
+  .die-face[data-v="2"] .pips { grid-template-areas: "a . ." ". . ." ". . b"; }
+  .die-face[data-v="2"] .pip:nth-child(1) { grid-area: a; }
+  .die-face[data-v="2"] .pip:nth-child(2) { grid-area: b; }
+  .die-face[data-v="3"] .pips { grid-template-areas: "a . ." ". b ." ". . c"; }
+  .die-face[data-v="3"] .pip:nth-child(1) { grid-area: a; }
+  .die-face[data-v="3"] .pip:nth-child(2) { grid-area: b; }
+  .die-face[data-v="3"] .pip:nth-child(3) { grid-area: c; }
+  .die-face[data-v="4"] .pips { grid-template-areas: "a . b" ". . ." "c . d"; }
+  .die-face[data-v="4"] .pip:nth-child(1) { grid-area: a; }
+  .die-face[data-v="4"] .pip:nth-child(2) { grid-area: b; }
+  .die-face[data-v="4"] .pip:nth-child(3) { grid-area: c; }
+  .die-face[data-v="4"] .pip:nth-child(4) { grid-area: d; }
+  .die-face[data-v="5"] .pips { grid-template-areas: "a . b" ". e ." "c . d"; }
+  .die-face[data-v="5"] .pip:nth-child(1) { grid-area: a; }
+  .die-face[data-v="5"] .pip:nth-child(2) { grid-area: b; }
+  .die-face[data-v="5"] .pip:nth-child(3) { grid-area: c; }
+  .die-face[data-v="5"] .pip:nth-child(4) { grid-area: d; }
+  .die-face[data-v="5"] .pip:nth-child(5) { grid-area: e; }
+  .die-face[data-v="6"] .pips { grid-template-areas: "a . b" "c . d" "e . f"; }
+  .die-face[data-v="6"] .pip:nth-child(1) { grid-area: a; }
+  .die-face[data-v="6"] .pip:nth-child(2) { grid-area: b; }
+  .die-face[data-v="6"] .pip:nth-child(3) { grid-area: c; }
+  .die-face[data-v="6"] .pip:nth-child(4) { grid-area: d; }
+  .die-face[data-v="6"] .pip:nth-child(5) { grid-area: e; }
+  .die-face[data-v="6"] .pip:nth-child(6) { grid-area: f; }
+
+  .die-face.front  { transform: rotateY(0deg) translateZ(calc(var(--ds) / 2)); }
+  .die-face.back   { transform: rotateY(180deg) translateZ(calc(var(--ds) / 2)); }
+  .die-face.right  { transform: rotateY(90deg) translateZ(calc(var(--ds) / 2)); }
+  .die-face.left   { transform: rotateY(-90deg) translateZ(calc(var(--ds) / 2)); }
+  .die-face.top    { transform: rotateX(90deg) translateZ(calc(var(--ds) / 2)); }
+  .die-face.bottom { transform: rotateX(-90deg) translateZ(calc(var(--ds) / 2)); }
+
+  #wheelControls, #rouletteControls, #cardsControls, #diceControls {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .game-note {
+    margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.45;
+  }
+  .game-note strong { color: var(--text); font-weight: 600; }
+  .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .swatch {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: .8rem; color: var(--muted);
+  }
+  .swatch i {
+    width: 14px; height: 14px; border-radius: 3px; display: inline-block;
+    border: 1px solid rgba(0,0,0,.2);
+  }
+  .swatch .red { background: #c41e3a; }
+  .swatch .black { background: #16161a; }
+  .swatch .green { background: #0a7a3e; }
+  .opt {
+    display: flex; align-items: center; gap: 8px;
+    font-size: .9rem; color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .opt input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .modal-sub {
+    margin: 8px 0 0; color: var(--muted); font-size: .95rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+
+  /* modal */
+  dialog {
+    border: 0; border-radius: 14px; padding: 0;
+    background: var(--panel); color: var(--text);
+    box-shadow: var(--shadow); width: min(92vw, 440px);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .55); backdrop-filter: blur(2px); }
+  dialog[open] { animation: pop .3s cubic-bezier(.2, 1.4, .4, 1); }
+  @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-body { padding: 28px 24px 12px; text-align: center; }
+  .modal-body small { color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+  .modal-result {
+    margin: 10px 0 0; font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 700;
+    word-break: break-word; padding: 14px; border-radius: 10px;
+    border-left: 10px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: center; padding: 16px 24px 24px; flex-wrap: wrap; }
+</style>
+</head>
+<body data-view="home">
+
+<header class="topbar">
+  <button type="button" class="brand" id="homeBtn" title="Úvodní stránka">Game play</button>
+  <nav class="games-nav" aria-label="Hry">
+    <button type="button" class="nav-game" data-game="wheel" title="Klasické kolo štěstí">🎡 Kolo</button>
+    <button type="button" class="nav-game" data-game="roulette" title="Ruleta při pohledu shora">🎰 Ruleta</button>
+    <button type="button" class="nav-game" data-game="cards" title="Tahání karet">🃏 Karty</button>
+    <button type="button" class="nav-game" data-game="dice" title="Hod třemi kostkami, výsledek je součet">🎲 Kostky</button>
+  </nav>
+  <div class="topbar-end">
+    <button id="themeBtn" class="icon-btn" type="button" aria-label="Přepnout světlý/tmavý režim" title="Přepne mezi světlým a tmavým režimem">🌙 Tmavý režim</button>
+  </div>
+</header>
+
+<section class="home-view" id="homeView">
+  <div class="play-frame" aria-live="polite">
+    <span class="corner-tr" aria-hidden="true"></span>
+    <span class="corner-bl" aria-hidden="true"></span>
+    <p class="play-invite">Pojď si hrát</p>
+  </div>
+</section>
+
+<section class="game-view" id="gameView" hidden>
+  <div class="game-head">
+    <h2 id="gameTitle">Kolo</h2>
+  </div>
+
+  <div class="game-layout">
+    <div class="stage-col">
+      <section class="wheel-wrap" id="stage">
+        <div class="wheel-face" id="wheelFace">
+        <canvas id="wheel" width="800" height="800" aria-label="Kolo štěstí" title="Kliknutím roztočíš kolo"></canvas>
+        <div class="pointer"></div>
+        <div class="hub" id="hub">napiš položky vpravo</div>
+        </div>
+
+        <div class="roulette-face" id="rouletteFace" title="Kliknutím vypustíš kuličku">
+          <canvas id="roulette" width="800" height="800" aria-label="Ruleta"></canvas>
+        </div>
+        <div class="cards-face" id="cardsFace" title="Kliknutím zamícháš balíček a vytáhneš kartu">
+          <div id="deckBox"></div>
+        </div>
+        <div class="dice-face" id="diceFace" title="Kliknutím hodíš třemi kostkami">
+          <div class="dice-table" id="diceTable" aria-label="Tři kostky"></div>
+        </div>
+        <div class="stage-caption" id="caption">kliknutím vypustíš kuličku</div>
+      </section>
+      <p class="stage-hint" id="stageHint">Napiš aspoň 2 položky — jedna na řádek — a spusť losování.</p>
+      <p class="turn-banner" id="turnBanner" hidden aria-live="polite">Hraje hráč <strong id="turnNum">1</strong></p>
+    </div>
+
+    <aside class="panel">
+      <button id="spinBtn" class="btn btn-primary" type="button" title="Spustí losování">Spustit</button>
+
+      <label class="players-field" title="Počet hráčů jen pro tuto hru">
+        <span>Počet hráčů</span>
+        <input id="playerCountInput" type="number" min="1" max="12" value="1" inputmode="numeric">
+      </label>
+
+      <div id="wheelControls">
+        <p class="game-note">Kolo ve stylu <strong>Máme rádi Česko</strong>: body <strong>1–50</strong>, ve finále i <strong>100</strong> a <strong>0</strong> (ztráta bodů).</p>
+        <label class="opt" title="Ve 3. finálovém kole platí místo 5 a 9 červená 100 a 0">
+          <input id="mrcFinale" type="checkbox" checked>
+          Finále (0 a 100 místo 5 a 9)
+        </label>
+        <div class="color-swatches" aria-hidden="true">
+          <span class="swatch"><i class="black"></i> body</span>
+          <span class="swatch"><i style="background:#d4a017"></i> 50</span>
+          <span class="swatch"><i class="red"></i> 100 / 0</span>
+        </div>
+        <!-- skryté: zachováno kvůli starým seznamům v localStorage -->
+        <div class="preset-tabs" id="presetTabs" hidden></div>
+        <textarea id="items" hidden aria-hidden="true"></textarea>
+        <button id="clearBtn" type="button" hidden></button>
+        <span id="count" hidden></span>
+      </div>
+
+      <div id="rouletteControls" hidden>
+        <p class="game-note">Evropská ruleta <strong>0–36</strong>: číselný prstenec, barvy kapes jako v kasinu.</p>
+        <div class="color-swatches" aria-hidden="true">
+          <span class="swatch"><i class="red"></i> červená</span>
+          <span class="swatch"><i class="black"></i> černá</span>
+          <span class="swatch"><i class="green"></i> nula</span>
+        </div>
+      </div>
+
+      <div id="cardsControls" hidden>
+        <p class="game-note">Standardní balíček <strong>52 karet</strong> (A–K, čtyři barvy). Po tahu karta vypadne z balíčku.</p>
+        <div class="row">
+          <button id="reshuffleBtn" class="btn btn-ghost" type="button" title="Vrátí všech 52 karet a zamíchá">Nový balíček</button>
+          <span class="count" id="cardsCount"></span>
+        </div>
+      </div>
+
+      <div id="diceControls" hidden>
+        <p class="game-note">Hází se <strong>3 kostkami</strong>. Výsledek je jejich <strong>součet</strong> (3–18).</p>
+        <p class="game-note" id="diceLast" hidden></p>
+      </div>
+
+      <button id="resetBtn" class="btn btn-ghost btn-secondary-action" type="button" title="Smaže historii výsledků">Smazat historii</button>
+    </aside>
+  </div>
+
+  <div class="history" id="history" aria-label="Historie výsledků">
+    <div class="history-head">
+      <h3>Historie</h3>
+    </div>
+    <p class="history-empty" id="historyEmpty">Zatím žádné točení.</p>
+    <div class="history-scroll" id="historyScroll" hidden>
+      <table>
+        <thead>
+          <tr id="historyHeadRow"></tr>
+        </thead>
+        <tbody id="historyList"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<dialog id="modal">
+  <div class="modal-body">
+    <small>Vybráno</small>
+    <p class="modal-result" id="modalResult"></p>
+    <p class="modal-sub" id="modalSub" hidden></p>
+  </div>
+  <div class="modal-actions">
+    <button id="modalRemove" class="btn btn-ghost" type="button" title="Odebere vybranou položku ze seznamu, aby se už nemohla vylosovat znovu">Odebrat z kola</button>
+    <button id="modalClose" class="btn btn-primary" type="button" autofocus>Zavřít</button>
+  </div>
+</dialog>
+
+<dialog id="confirmModal">
+  <div class="modal-body">
+    <small>Potvrzení</small>
+    <p class="modal-result" id="confirmText"></p>
+  </div>
+  <div class="modal-actions">
+    <button id="confirmNo" class="btn btn-ghost" type="button">Zrušit</button>
+    <button id="confirmYes" class="btn btn-danger" type="button">Vymazat</button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'kolo-stesti:v2';
+  const HISTORY_LIMIT = 100;
+  const MAX_PRESETS = 10;
+  const MAX_PLAYERS = 12;
+  const GAME_IDS = ['wheel', 'roulette', 'cards', 'dice'];
+  const emptyHistories = () => Object.fromEntries(GAME_IDS.map((g) => [g, []]));
+  const emptyPending = () => Object.fromEntries(GAME_IDS.map((g) => [g, null]));
+  const defaultPlayerCounts = () => Object.fromEntries(GAME_IDS.map((g) => [g, 1]));
+  const defaultTurns = () => Object.fromEntries(GAME_IDS.map((g) => [g, 1]));
+
+  /* evropská ruleta: pořadí kapes + barvy */
+  /* Máme rádi Česko — hodnoty podle deskové / TV finále
+     Základ: 1,2,3,5,9,15,50 · Finále: 5→100, 9→0 (červená) */
+  function mrcSegments(finale) {
+    const specialA = finale ? { label: '100', style: 'red' } : { label: '5', style: 'dark' };
+    const specialB = finale ? { label: '0', style: 'bust' } : { label: '9', style: 'light' };
+    return [
+      { label: '1', style: 'light' },
+      { label: '2', style: 'dark' },
+      { label: '3', style: 'light' },
+      { label: '15', style: 'dark' },
+      { label: '50', style: 'gold' },
+      { label: '1', style: 'dark' },
+      { label: '2', style: 'light' },
+      { label: '3', style: 'dark' },
+      specialA,
+      specialB,
+      { label: '15', style: 'light' },
+      { label: '50', style: 'gold' }
+    ];
+  }
+  const MRC_STYLE = {
+    light: { fill: '#f3e6c4', text: '#1a1520' },
+    dark:  { fill: '#1e2a44', text: '#f5f0e6' },
+    gold:  { fill: '#d4a017', text: '#1a1520' },
+    red:   { fill: '#c41e3a', text: '#fff' },
+    bust:  { fill: '#5c0a16', text: '#ffb4c0' }
+  };
+
+  const ROULETTE_RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  const ROULETTE_ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+  const ROULETTE = ROULETTE_ORDER.map((n) => ({
+    n,
+    label: String(n),
+    color: n === 0 ? 'green' : ROULETTE_RED.has(n) ? 'red' : 'black',
+    colorLabel: n === 0 ? 'zelená' : ROULETTE_RED.has(n) ? 'červená' : 'černá',
+    fill: n === 0 ? '#0a7a3e' : ROULETTE_RED.has(n) ? '#c41e3a' : '#16161a'
+  }));
+
+  /* standardní balíček 52 karet */
+  const CARD_SUITS = [
+    { sym: '♠', name: 'piky', red: false },
+    { sym: '♥', name: 'srdce', red: true },
+    { sym: '♦', name: 'káry', red: true },
+    { sym: '♣', name: 'kříže', red: false }
+  ];
+  const CARD_RANKS = [
+    { r: 'A', name: 'Eso' },
+    { r: '2', name: '2' }, { r: '3', name: '3' }, { r: '4', name: '4' },
+    { r: '5', name: '5' }, { r: '6', name: '6' }, { r: '7', name: '7' },
+    { r: '8', name: '8' }, { r: '9', name: '9' }, { r: '10', name: '10' },
+    { r: 'J', name: 'Spodek' }, { r: 'Q', name: 'Královna' }, { r: 'K', name: 'Král' }
+  ];
+  function buildFullDeck() {
+    const out = [];
+    CARD_SUITS.forEach((suit) => {
+      CARD_RANKS.forEach((rank) => {
+        out.push({
+          id: rank.r + suit.sym,
+          rank: rank.r,
+          suit: suit.sym,
+          red: suit.red,
+          label: rank.r + suit.sym,
+          full: rank.name + ' ' + suit.name
+        });
+      });
+    });
+    return out;
+  }
+  function shuffleInPlace(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const canvas = $('wheel'), ctx = canvas.getContext('2d');
+  const textarea = $('items'), hub = $('hub'), spinBtn = $('spinBtn');
+  const modal = $('modal');
+
+  const state = {
+    items: [],               // položky aktivního seznamu (jen Kolo)
+    presets: [[]],
+    active: 0,
+    names: [''],
+    cardDeck: shuffleInPlace(buildFullDeck()),
+    theme: null,
+    rotation: 0,
+    spinning: false,
+    histories: emptyHistories(),   // kola { players[], ts } zvlášť pro každou hru
+    pendingRound: emptyPending(),  // rozpracované kolo do dohrání všech hráčů
+    playerCount: defaultPlayerCounts(),
+    currentPlayer: defaultTurns(), // tah 1…N u každé hry
+    historyAsc: false,
+    mode: 'wheel',
+    view: 'home',
+    mrcFinale: true
+  };
+
+  const GAME_TITLES = {
+    wheel: 'Kolo',
+    roulette: 'Ruleta',
+    cards: 'Karty',
+    dice: 'Kostky'
+  };
+
+  function gameHistory() {
+    const mode = state.mode;
+    return (state.histories[mode] || []).filter((h) => !h.game || h.game === mode);
+  }
+  function playerCount() { return state.playerCount[state.mode] || 1; }
+  function currentPlayer() { return state.currentPlayer[state.mode] || 1; }
+  function looksLikeDiceResult(text) {
+    return /^\d+\s*\+\s*\d+\s*\+\s*\d+\s*=\s*\d+$/.test(String(text || ''));
+  }
+  function looksLikeCardResult(text) {
+    return /[♠♥♦♣]/.test(String(text || ''));
+  }
+  const MRC_LABELS = new Set(['0', '1', '2', '3', '5', '9', '15', '50', '100']);
+  function looksLikeRouletteResult(text) {
+    const t = String(text || '');
+    if (!/^\d{1,2}$/.test(t)) return false;
+    const n = Number(t);
+    return n >= 0 && n <= 36 && !MRC_LABELS.has(t);
+  }
+  function inferGameFromPlayers(players, fallbackGame) {
+    if (players.some(looksLikeDiceResult)) return 'dice';
+    if (players.some(looksLikeCardResult)) return 'cards';
+    if (players.some(looksLikeRouletteResult)) return 'roulette';
+    return GAME_IDS.includes(fallbackGame) ? fallbackGame : 'wheel';
+  }
+
+  function clampPlayers(n) {
+    const v = Math.floor(Number(n));
+    if (!Number.isFinite(v)) return 1;
+    return Math.min(MAX_PLAYERS, Math.max(1, v));
+  }
+
+  function setPlayerCount(n) {
+    const count = clampPlayers(n);
+    state.playerCount[state.mode] = count;
+    state.currentPlayer[state.mode] = 1;
+    state.pendingRound[state.mode] = null; // nové nastavení = nové kolo od hráče 1
+    $('playerCountInput').value = String(count);
+    updateTurnBanner();
+    renderHistory();
+    save();
+  }
+
+  function normalizeRound(h, fallbackGame) {
+    let players;
+    let ts = null;
+    let game = fallbackGame;
+    if (h && typeof h === 'object' && Array.isArray(h.players)) {
+      players = h.players.map(String);
+      ts = Number(h.ts) || null;
+      if (GAME_IDS.includes(h.game)) game = h.game;
+    } else if (h && typeof h === 'object' && h.text != null) {
+      // stará položka po jednom tahu → jedno kolo s jedním hráčem
+      players = [String(h.text)];
+      ts = Number(h.ts) || null;
+      if (GAME_IDS.includes(h.game)) game = h.game;
+    } else {
+      players = [String(h)];
+    }
+    // staré smíšené záznamy přiřaď podle obsahu (kostky / karty)
+    game = inferGameFromPlayers(players, game);
+    if (!GAME_IDS.includes(game)) game = fallbackGame || 'wheel';
+    return { players, ts, game };
+  }
+
+  /** přesune chybně zařazené kola (hlavně starou společnou historii) do správné hry */
+  function rehomeHistories() {
+    const next = emptyHistories();
+    GAME_IDS.forEach((from) => {
+      (state.histories[from] || []).forEach((round) => {
+        const r = normalizeRound(round, from);
+        next[r.game].push(r);
+      });
+    });
+    GAME_IDS.forEach((g) => {
+      next[g].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      state.histories[g] = next[g].slice(0, HISTORY_LIMIT);
+    });
+  }
+
+  function recordRoundResult(resultText, player) {
+    const n = playerCount();
+    const mode = state.mode;
+    let pending = state.pendingRound[mode];
+    if (!pending || pending.results.length !== n) {
+      pending = { results: Array(n).fill(null), ts: Date.now() };
+      state.pendingRound[mode] = pending;
+    }
+    pending.results[player - 1] = resultText;
+    pending.ts = Date.now();
+    const complete = player === n || pending.results.every((r) => r != null);
+    if (complete) {
+      const hist = (state.histories[mode] || []).filter((h) => !h.game || h.game === mode);
+      hist.unshift({
+        players: pending.results.map((r) => (r == null ? '—' : r)),
+        ts: pending.ts,
+        game: mode
+      });
+      state.histories[mode] = hist.slice(0, HISTORY_LIMIT);
+      state.pendingRound[mode] = null;
+    }
+  }
+
+  function advanceTurn() {
+    const n = playerCount();
+    if (n <= 1) return;
+    state.currentPlayer[state.mode] = (currentPlayer() % n) + 1;
+    updateTurnBanner();
+  }
+
+  function updateTurnBanner() {
+    const multi = playerCount() > 1;
+    const banner = $('turnBanner');
+    banner.hidden = !multi || state.view === 'home';
+    if (multi) $('turnNum').textContent = String(currentPlayer());
+  }
+
+  function wheelPool() { return mrcSegments(state.mrcFinale); }
+
+  function poolSize() {
+    if (state.mode === 'roulette') return ROULETTE.length;
+    if (state.mode === 'cards') return state.cardDeck.length;
+    if (state.mode === 'dice') return 3;
+    return wheelPool().length;
+  }
+  function canSpin() {
+    if (state.spinning) return false;
+    if (state.mode === 'roulette') return true;
+    if (state.mode === 'cards') return state.cardDeck.length >= 1;
+    if (state.mode === 'dice') return true;
+    return true;
+  }
+  function resultLabel(index) {
+    if (state.mode === 'roulette') return ROULETTE[index].label;
+    if (state.mode === 'cards') return state.cardDeck[index].label;
+    if (state.mode === 'dice' && lastDice) return String(lastDice.reduce((a, b) => a + b, 0));
+    return wheelPool()[index].label;
+  }
+
+  /* ---------- přepínání her / úvod ---------- */
+  function setView(view) {
+    if (state.spinning && view !== state.view) return;
+    state.view = GAME_IDS.includes(view) ? view : 'home';
+    document.body.dataset.view = state.view;
+    const atHome = state.view === 'home';
+    $('homeView').hidden = !atHome;
+    $('gameView').hidden = atHome;
+    document.querySelectorAll('.nav-game').forEach((btn) => {
+      const on = btn.dataset.game === state.view;
+      btn.classList.toggle('active', on);
+      if (on) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    });
+    if (atHome) {
+      stopRoulette();
+      updateTurnBanner();
+    } else {
+      $('gameTitle').textContent = GAME_TITLES[state.view];
+      setMode(state.view);
+      updatePanelForMode();
+      save();
+      requestAnimationFrame(() => {
+        fitCards();
+        draw();
+      });
+    }
+  }
+
+  function updatePanelForMode() {
+    const m = state.mode;
+    $('wheelControls').hidden = m !== 'wheel';
+    $('rouletteControls').hidden = m !== 'roulette';
+    $('cardsControls').hidden = m !== 'cards';
+    $('diceControls').hidden = m !== 'dice';
+    $('playerCountInput').value = String(playerCount());
+    spinBtn.disabled = !canSpin();
+    updateHints();
+    updateTurnBanner();
+    renderHistory();
+    if (m === 'cards') updateCardsCount();
+  }
+  $('homeBtn').addEventListener('click', () => setView('home'));
+  document.querySelectorAll('.nav-game').forEach((btn) => {
+    btn.addEventListener('click', () => setView(btn.dataset.game));
+  });
+
+  /* ---------- localStorage ---------- */
+  function load() {
+    try {
+      // v2 + fallback na starší klíč
+      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('kolo-stesti:v1');
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (Array.isArray(d.presets)) {
+        state.presets = d.presets.slice(0, MAX_PRESETS)
+          .map((p) => (Array.isArray(p) ? p.map(String) : []));
+        if (state.presets.length === 0) state.presets = [[]];
+        state.names = state.presets.map((_, i) =>
+          (Array.isArray(d.presetNames) && typeof d.presetNames[i] === 'string'
+            ? d.presetNames[i].slice(0, 20) : ''));
+        const a = Number(d.activePreset);
+        state.active = Number.isInteger(a) && a >= 0 && a < state.presets.length ? a : 0;
+        state.items = state.presets[state.active].slice();
+      } else if (Array.isArray(d.items)) {
+        state.items = d.items.map(String);
+        state.presets[0] = state.items.slice();
+      }
+      if (d.theme === 'dark' || d.theme === 'light') state.theme = d.theme;
+      if (typeof d.historyAsc === 'boolean') state.historyAsc = d.historyAsc;
+      if (typeof d.mrcFinale === 'boolean') state.mrcFinale = d.mrcFinale;
+      if (GAME_IDS.includes(d.mode)) state.mode = d.mode;
+
+      let historiesTouched = false;
+      if (d.histories && typeof d.histories === 'object' && !Array.isArray(d.histories)) {
+        GAME_IDS.forEach((g) => {
+          const arr = Array.isArray(d.histories[g]) ? d.histories[g] : [];
+          state.histories[g] = arr.slice(0, HISTORY_LIMIT).map((h) => normalizeRound(h, g));
+        });
+        rehomeHistories();
+        historiesTouched = true;
+      } else if (Array.isArray(d.history)) {
+        // migrace staré společné historie — podle obsahu do správné hry
+        d.history.slice(0, HISTORY_LIMIT).forEach((h) => {
+          const round = normalizeRound(h, GAME_IDS.includes(d.mode) ? d.mode : 'wheel');
+          state.histories[round.game].push(round);
+        });
+        GAME_IDS.forEach((g) => {
+          state.histories[g].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+          state.histories[g] = state.histories[g].slice(0, HISTORY_LIMIT);
+        });
+        historiesTouched = true;
+      }
+      if (historiesTouched) save();
+
+      if (d.pendingRound && typeof d.pendingRound === 'object') {
+        GAME_IDS.forEach((g) => {
+          const p = d.pendingRound[g];
+          if (p && Array.isArray(p.results)) {
+            state.pendingRound[g] = {
+              results: p.results.map((r) => (r == null ? null : String(r))),
+              ts: Number(p.ts) || Date.now()
+            };
+          }
+        });
+      }
+
+      if (d.playerCount && typeof d.playerCount === 'object') {
+        GAME_IDS.forEach((g) => {
+          state.playerCount[g] = clampPlayers(d.playerCount[g] ?? 1);
+        });
+      }
+      if (d.currentPlayer && typeof d.currentPlayer === 'object') {
+        GAME_IDS.forEach((g) => {
+          const max = state.playerCount[g];
+          const p = clampPlayers(d.currentPlayer[g] ?? 1);
+          state.currentPlayer[g] = Math.min(p, max);
+        });
+      }
+
+      if (Array.isArray(d.cardIds) && d.cardIds.length) {
+        const full = buildFullDeck();
+        const byId = new Map(full.map((c) => [c.id, c]));
+        const rest = d.cardIds.map((id) => byId.get(id)).filter(Boolean);
+        if (rest.length) state.cardDeck = rest;
+      }
+    } catch (e) { /* poškozená data ignorovat */ }
+  }
+  function save() {
+    try {
+      state.presets[state.active] = state.items.slice();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        items: state.items, presets: state.presets, activePreset: state.active,
+        presetNames: state.names,
+        theme: state.theme,
+        histories: state.histories,
+        pendingRound: state.pendingRound,
+        playerCount: state.playerCount,
+        currentPlayer: state.currentPlayer,
+        historyAsc: state.historyAsc, mode: state.mode, mrcFinale: state.mrcFinale,
+        cardIds: state.cardDeck.map((c) => c.id)
+      }));
+    } catch (e) { /* plné úložiště / privátní režim */ }
+  }
+
+  /* ---------- téma ---------- */
+  function applyTheme() {
+    const theme = state.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.dataset.theme = theme;
+    $('themeBtn').textContent = theme === 'dark' ? '☀️ Světlý režim' : '🌙 Tmavý režim';
+    draw();
+  }
+  $('themeBtn').addEventListener('click', () => {
+    const cur = document.documentElement.dataset.theme;
+    state.theme = cur === 'dark' ? 'light' : 'dark';
+    save();
+    applyTheme();
+  });
+
+  /* ---------- kreslení (MRC kolo) ---------- */
+  const TAU = Math.PI * 2;
+  // ukazatel je nahoře (canvas: 3π/2)
+  const POINTER_ANGLE = Math.PI * 1.5;
+
+  function colorFor(i, n) {
+    const hue = (i * 360 / n) % 360;
+    const dark = document.documentElement.dataset.theme === 'dark';
+    return `hsl(${hue}, ${dark ? 55 : 70}%, ${dark ? 42 : 68}%)`;
+  }
+
+  function draw() {
+    const size = canvas.width, c = size / 2, r = c - 10;
+    ctx.clearRect(0, 0, size, size);
+    const items = wheelPool();
+    const n = items.length;
+    const seg = TAU / n;
+
+    // vnější mosazný ráfek
+    let g = ctx.createRadialGradient(c, c, r - 18, c, c, r + 8);
+    g.addColorStop(0, '#c9a227'); g.addColorStop(.55, '#8a6b14'); g.addColorStop(1, '#5c480c');
+    ctx.beginPath(); ctx.arc(c, c, r + 6, 0, TAU); ctx.fillStyle = g; ctx.fill();
+
+    ctx.save();
+    ctx.translate(c, c);
+    ctx.rotate(state.rotation);
+
+    for (let i = 0; i < n; i++) {
+      const style = MRC_STYLE[items[i].style] || MRC_STYLE.dark;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, r, i * seg, (i + 1) * seg);
+      ctx.closePath();
+      ctx.fillStyle = style.fill;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // kolík mezi výsečemi
+      ctx.save();
+      ctx.rotate((i + 1) * seg);
+      ctx.fillStyle = '#e8d48b';
+      ctx.beginPath(); ctx.arc(r - 4, 0, 5, 0, TAU); ctx.fill();
+      ctx.restore();
+
+      // číslo
+      ctx.save();
+      ctx.rotate(i * seg + seg / 2);
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      const fontSize = Math.max(22, Math.min(42, r * seg * 0.55));
+      ctx.font = `800 ${fontSize}px "Sora", "Figtree", sans-serif`;
+      ctx.fillStyle = style.text;
+      ctx.fillText(items[i].label, r - 28, 0);
+      ctx.restore();
+    }
+
+    // středový náboj
+    g = ctx.createRadialGradient(-16, -16, 8, 0, 0, r * 0.28);
+    g.addColorStop(0, '#fff1b0'); g.addColorStop(.45, '#d4a017'); g.addColorStop(1, '#6b4f0c');
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.28, 0, TAU); ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = '#5c480c'; ctx.lineWidth = 4; ctx.stroke();
+    // trikolóra
+    const tr = r * 0.16;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, tr, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#d7141a'; ctx.fillRect(-tr * .7, -tr * .35, tr * 1.4, tr * 0.35);
+    ctx.fillStyle = '#11457e'; ctx.fillRect(-tr * .7, 0, tr * 1.4, tr * 0.35);
+
+    ctx.restore();
+
+    // vnitřní stín ráfku
+    ctx.beginPath(); ctx.arc(c, c, r, 0, TAU);
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 3; ctx.stroke();
+  }
+
+  /* ---------- točení ---------- */
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 4); }
+
+  function spin() {
+    const n = poolSize();
+    if (!canSpin() || n < 1) return;
+    state.spinning = true;
+    spinBtn.disabled = true;
+    hub.classList.add('hidden');
+
+    if (state.mode === 'dice') { spinDice(); return; }
+
+    const seg = TAU / n;
+    const winner = Math.floor(Math.random() * n);
+    if (state.mode === 'roulette') { spinRoulette(winner); return; }
+    if (state.mode === 'cards') { spinCards(winner); return; }
+    // ukazatel nahoře (POINTER_ANGLE); střed výseče vítěze + jitter
+    const jitter = (Math.random() - 0.5) * seg * 0.75;
+    const targetMod = ((POINTER_ANGLE - ((winner + 0.5) * seg + jitter)) % TAU + TAU) % TAU;
+    const startMod = ((state.rotation % TAU) + TAU) % TAU;
+    const fullTurns = 5 + Math.floor(Math.random() * 3);
+    let delta = targetMod - startMod;
+    if (delta < 0) delta += TAU;
+    delta += fullTurns * TAU;
+
+    const start = state.rotation, duration = 5000 + Math.random() * 1500;
+    const t0 = performance.now();
+
+    function frame(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      state.rotation = start + delta * easeOutCubic(t);
+      draw();
+      if (t < 1) return requestAnimationFrame(frame);
+      state.rotation %= TAU;
+      state.spinning = false;
+      spinBtn.disabled = false;
+      showResult(winner);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- výsledek / modal ---------- */
+  let lastWinner = -1;
+  let lastDice = null;   // [a,b,c] po hodu kostkami
+  function showResult(index) {
+    lastWinner = index;
+    const who = currentPlayer();
+    const multi = playerCount() > 1;
+    const sub = $('modalSub');
+    let text = resultLabel(index);
+    let border = colorFor(index, Math.max(poolSize(), 1));
+    sub.hidden = true;
+    sub.textContent = '';
+
+    if (state.mode === 'dice' && lastDice) {
+      const sum = lastDice.reduce((a, b) => a + b, 0);
+      text = String(sum);
+      border = 'var(--accent)';
+      sub.hidden = false;
+      sub.textContent = lastDice.join(' + ');
+      sub.style.color = 'var(--muted)';
+      $('modalRemove').hidden = true;
+      const last = $('diceLast');
+      last.hidden = false;
+      last.innerHTML = (multi ? 'Hráč ' + who + ' — ' : '')
+        + 'Poslední hod: <strong>' + lastDice.join(' + ') + ' = ' + sum + '</strong>';
+    } else if (state.mode === 'roulette') {
+      const p = ROULETTE[index];
+      text = p.label;
+      border = p.fill;
+      sub.hidden = false;
+      sub.textContent = p.colorLabel;
+      sub.style.color = p.color === 'black' ? 'var(--muted)' : p.fill;
+      $('modalRemove').hidden = true;
+    } else if (state.mode === 'cards') {
+      const c = state.cardDeck[index];
+      text = c.label;
+      border = c.red ? '#c41e3a' : '#1b1b1f';
+      sub.hidden = false;
+      sub.textContent = c.full;
+      sub.style.color = c.red ? '#c41e3a' : 'var(--muted)';
+      $('modalRemove').hidden = true;
+      state.cardDeck.splice(index, 1);
+      updateCardsCount();
+    } else {
+      const w = wheelPool()[index];
+      const st = MRC_STYLE[w.style] || MRC_STYLE.dark;
+      text = w.label;
+      border = st.fill;
+      sub.hidden = false;
+      if (w.label === '0') {
+        sub.textContent = 'ztráta všech bodů';
+        sub.style.color = '#c41e3a';
+      } else if (w.label === '100') {
+        sub.textContent = 'maximum';
+        sub.style.color = '#c41e3a';
+      } else if (w.label === '50') {
+        sub.textContent = 'bonus';
+        sub.style.color = '#d4a017';
+      } else {
+        sub.textContent = 'bodů';
+        sub.style.color = 'var(--muted)';
+      }
+      $('modalRemove').hidden = true;
+    }
+
+    const modalLabel = multi ? 'Hráč ' + who : 'Vybráno';
+    modal.querySelector('.modal-body small').textContent = modalLabel;
+    $('modalResult').textContent = text;
+    $('modalResult').style.borderLeftColor = border;
+    const histText = (state.mode === 'dice' && lastDice)
+      ? lastDice.join(' + ') + ' = ' + text
+      : text;
+    recordRoundResult(histText, who);
+    advanceTurn();
+    save();
+    renderHistory();
+    modal.showModal();
+    $('modalClose').focus();
+  }
+
+  $('modalClose').addEventListener('click', () => modal.close());
+  $('modalRemove').addEventListener('click', () => {
+    if (state.mode === 'wheel' && lastWinner >= 0) {
+      state.items.splice(lastWinner, 1);
+      lastWinner = -1;
+      syncTextarea();
+      onItemsChanged(false);
+    }
+    modal.close();
+  });
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.close(); });
+  modal.addEventListener('close', () => {
+    hub.classList.remove('hidden');
+    spinBtn.disabled = !canSpin();
+  });
+
+  /* ---------- UI ---------- */
+  function syncTextarea() { textarea.value = state.items.join('\n'); }
+
+  function updateCardsCount() {
+    const n = state.cardDeck.length;
+    $('cardsCount').textContent = n === 0 ? 'Balíček prázdný'
+      : n === 1 ? 'Zbývá 1 karta'
+      : n < 5 ? 'Zbývá ' + n + ' karty'
+      : 'Zbývá ' + n + ' karet';
+    spinBtn.disabled = !canSpin();
+  }
+
+  function historyIsEmpty() {
+    return gameHistory().length === 0 && !state.pendingRound[state.mode];
+  }
+
+  function updateHints() {
+    const histEmpty = historyIsEmpty();
+    if (state.mode === 'roulette') {
+      hub.textContent = 'kliknutím vypustíš kuličku';
+      $('stageHint').textContent = 'Kulička padne na jedno z čísel 0–36.';
+      $('resetBtn').disabled = histEmpty;
+      return;
+    }
+    if (state.mode === 'cards') {
+      hub.textContent = 'kliknutím zamícháš balíček';
+      $('stageHint').textContent = state.cardDeck.length
+        ? 'Zamíchá se balíček a vytáhne se jedna karta.'
+        : 'Balíček je prázdný — založ nový balíček.';
+      $('resetBtn').disabled = histEmpty;
+      updateCardsCount();
+      return;
+    }
+    if (state.mode === 'dice') {
+      hub.textContent = 'kliknutím hodíš';
+      $('stageHint').textContent = 'Tři kostky — výsledek je jejich součet.';
+      $('resetBtn').disabled = histEmpty;
+      return;
+    }
+    hub.textContent = 'kliknutím to roztočíš';
+    $('stageHint').textContent = state.mrcFinale
+      ? 'Finále: padne-li 0, tým přijde o všechny body.'
+      : 'Základní kola: černá čísla včetně bonusové 50.';
+    $('resetBtn').disabled = histEmpty;
+  }
+
+  function onItemsChanged(fromTextarea = true) {
+    spinBtn.disabled = !canSpin();
+    updateHints();
+    save();
+    draw();
+  }
+
+  textarea.addEventListener('input', () => {
+    state.items = textarea.value.split('\n').map((s) => s.trim()).filter(Boolean);
+    onItemsChanged();
+  });
+
+  function setItems(items) {
+    if (state.spinning) return;
+    state.items = items.slice();
+    syncTextarea();
+    onItemsChanged(false);
+  }
+
+  /* ---------- seznamy ---------- */
+  function renderPresetTabs() {
+    const box = $('presetTabs');
+    box.innerHTML = '';
+    const multi = state.presets.length > 1;
+    state.presets.forEach((_, i) => {
+      if (i === renamingIdx) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'preset-name';
+        input.maxLength = PRESET_NAME_MAX;
+        input.value = presetLabel(i);
+        input.setAttribute('aria-label', 'Název seznamu');
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') finishRename(i, input.value, true);
+          else if (e.key === 'Escape') finishRename(i, '', false);
+        });
+        input.addEventListener('blur', () => finishRename(i, input.value, true));
+        box.appendChild(input);
+        setTimeout(() => { input.focus(); input.select(); }, 0);
+        return;
+      }
+      if (!multi && i === 0) return; // jeden seznam: jen tlačítko „Další seznam“
+      const b = document.createElement('button');
+      const on = i === state.active;
+      b.type = 'button';
+      b.className = 'seg-btn' + (on ? ' active' : '');
+      b.textContent = presetLabel(i);
+      b.title = 'Přepne na „' + presetLabel(i) + '“ (dvojklikem přejmenuješ)';
+      b.setAttribute('aria-pressed', String(on));
+      b.addEventListener('click', () => switchPreset(i));
+      b.addEventListener('dblclick', () => { switchPreset(i); startRename(i); });
+      box.appendChild(b);
+    });
+    if (multi) {
+      const rename = document.createElement('button');
+      rename.type = 'button';
+      rename.className = 'seg-btn seg-action';
+      rename.textContent = '✎';
+      rename.title = 'Přejmenuje aktuální seznam';
+      rename.addEventListener('click', () => startRename(state.active));
+      box.appendChild(rename);
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'seg-btn seg-action';
+      del.textContent = '✕';
+      del.title = 'Odebere aktuální seznam i s položkami';
+      del.addEventListener('click', removePreset);
+      box.appendChild(del);
+    }
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'seg-btn seg-action seg-add';
+    add.textContent = 'Další seznam';
+    add.title = 'Přidá nový prázdný seznam (nejvýše ' + MAX_PRESETS + ')';
+    add.disabled = state.presets.length >= MAX_PRESETS;
+    add.addEventListener('click', addPreset);
+    box.appendChild(add);
+  }
+
+  // vlastní název; prázdný = výchozí „Seznam N“
+  const PRESET_NAME_MAX = 20;
+  let renamingIdx = null;
+  const presetLabel = (i) => state.names[i] || 'Seznam ' + (i + 1);
+
+  function startRename(i) {
+    if (state.spinning) return;
+    renamingIdx = i;
+    renderPresetTabs();
+  }
+
+  function finishRename(i, value, commit) {
+    if (renamingIdx !== i) return;   // blur po Enteru/Escape
+    renamingIdx = null;
+    if (commit) {
+      state.names[i] = value.trim().slice(0, PRESET_NAME_MAX).trim();
+      save();
+    }
+    renderPresetTabs();
+  }
+
+  function addPreset() {
+    if (state.spinning || state.presets.length >= MAX_PRESETS) return;
+    state.presets[state.active] = state.items.slice();
+    state.presets.push([]);
+    state.names.push('');
+    switchPreset(state.presets.length - 1);
+  }
+
+  function removePreset() {
+    if (state.spinning || state.presets.length <= 1) return;
+    const i = state.active;
+    const doRemove = () => {
+      state.presets.splice(i, 1);
+      state.names.splice(i, 1);
+      renamingIdx = null;
+      state.active = Math.min(i, state.presets.length - 1);
+      state.items = state.presets[state.active].slice();
+      syncTextarea();
+      renderPresetTabs();
+      onItemsChanged(false);
+    };
+    askConfirm(`Opravdu odebrat „${presetLabel(i)}“ i s jeho položkami?`, 'Odebrat', doRemove);
+  }
+
+  function switchPreset(i) {
+    if (state.spinning || i === state.active) return;
+    renamingIdx = null;
+    state.presets[state.active] = state.items.slice();
+    state.active = i;
+    state.items = state.presets[i].slice();
+    syncTextarea();
+    renderPresetTabs();
+    onItemsChanged(false);
+  }
+
+  const MODES = {
+    wheel: {},
+    roulette: { caption: 'kliknutím vypustíš kuličku' },
+    cards: { caption: 'kliknutím zamícháš balíček' },
+    dice: { caption: 'kliknutím hodíš kostkami' }
+  };
+
+  function setMode(mode) {
+    state.mode = MODES[mode] ? mode : 'wheel';
+    Object.keys(MODES).forEach((m) => {
+      $('stage').classList.toggle('mode-' + m, m === state.mode);
+    });
+    if (MODES[state.mode].caption) $('caption').textContent = MODES[state.mode].caption;
+    if (state.mode === 'roulette') startRoulette(); else stopRoulette();
+    updatePanelForMode();
+  }
+  $('rouletteFace').addEventListener('click', spin);
+  $('cardsFace').addEventListener('click', spin);
+  $('diceFace').addEventListener('click', spin);
+  window.addEventListener('resize', fitCards);
+
+  /* ---------- Ruleta (pohled shora) ---------- */
+  const rCanvas = $('roulette'), rctx = rCanvas.getContext('2d');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const R_WHEEL_SPEED = 0.5;       // rad/s, kolo se točí pořád stejně
+  const R_SPIN_MS = 6500;           // základní délka letu kuličky
+  const R_BOWL = 392, R_WOOD = 335, R_TRACK = 300, R_RIM = 265;
+  const R_POCKET_OUT = 262, R_POCKET_IN = 168, R_BALL_REST = 238;
+  const roulette = { raf: 0, base: 0, t0: 0, ball: null, spin: null, onDone: null };
+
+  function rouletteWheelAt(timeMs) {
+    return roulette.base + R_WHEEL_SPEED * (timeMs - roulette.t0) / 1000;
+  }
+
+  function startRoulette() {
+    if (roulette.raf) return;
+    roulette.t0 = performance.now();
+    const loop = (now) => {
+      // chyba v jednom snímku nesmí zastavit smyčku a tím zaseknout losování
+      try { drawRoulette(now); } catch (e) { console.error('ruleta: chyba při kreslení', e); }
+      roulette.raf = requestAnimationFrame(loop);
+    };
+    roulette.raf = requestAnimationFrame(loop);
+  }
+
+  function stopRoulette() {
+    if (!roulette.raf || roulette.spin) return;
+    cancelAnimationFrame(roulette.raf);
+    roulette.raf = 0;
+    const now = performance.now();
+    roulette.base = rouletteWheelAt(now);   // aby kolo po návratu navázalo
+    roulette.t0 = now;
+  }
+
+  function drawRoulette(now) {
+    const size = rCanvas.width, c = size / 2;
+    const n = ROULETTE.length;
+    const wheel = rouletteWheelAt(now);
+    rctx.clearRect(0, 0, size, size);
+
+    // dřevěná mísa
+    let g = rctx.createRadialGradient(c, c, R_WOOD, c, c, R_BOWL);
+    g.addColorStop(0, '#8b5a2b'); g.addColorStop(.6, '#5e3a1a'); g.addColorStop(1, '#3a210d');
+    rctx.fillStyle = g;
+    rctx.beginPath(); rctx.arc(c, c, R_BOWL, 0, TAU); rctx.fill();
+    rctx.strokeStyle = '#d4af37'; rctx.lineWidth = 4;
+    rctx.beginPath(); rctx.arc(c, c, R_WOOD, 0, TAU); rctx.stroke();
+
+    // dráha kuličky
+    g = rctx.createRadialGradient(c, c, R_RIM, c, c, R_WOOD);
+    g.addColorStop(0, '#2b2b31'); g.addColorStop(.5, '#4d4d58'); g.addColorStop(1, '#25252b');
+    rctx.fillStyle = g;
+    rctx.beginPath(); rctx.arc(c, c, R_WOOD - 2, 0, TAU); rctx.fill();
+    rctx.strokeStyle = '#d4af37'; rctx.lineWidth = 3;
+    rctx.beginPath(); rctx.arc(c, c, R_RIM, 0, TAU); rctx.stroke();
+
+    // číselný prstenec (evropské pořadí + správné barvy)
+    const seg = TAU / n;
+    const R_COLOR_OUT = R_POCKET_IN - 2;
+    const R_COLOR_IN = 78;
+    for (let i = 0; i < n; i++) {
+      const p = ROULETTE[i];
+      const a0 = wheel + i * seg, a1 = a0 + seg;
+      rctx.beginPath();
+      rctx.arc(c, c, R_POCKET_OUT, a0, a1);
+      rctx.arc(c, c, R_POCKET_IN, a1, a0, true);
+      rctx.closePath();
+      rctx.fillStyle = p.fill;
+      rctx.fill();
+      rctx.strokeStyle = '#d4af37'; rctx.lineWidth = 1.5; rctx.stroke();
+
+      rctx.save();
+      rctx.translate(c, c);
+      rctx.rotate(a0 + seg / 2);
+      rctx.textAlign = 'right'; rctx.textBaseline = 'middle';
+      rctx.fillStyle = '#fff';
+      const fs = Math.max(10, Math.min(16, R_POCKET_IN * seg * 0.55));
+      rctx.font = `700 ${fs}px "Figtree", system-ui, sans-serif`;
+      rctx.fillText(p.label, R_POCKET_OUT - 6, 0);
+      rctx.restore();
+    }
+
+    // vnitřní klasický pás červená / černá (bez nuly — půlky)
+    rctx.save();
+    rctx.translate(c, c);
+    rctx.rotate(wheel);
+    rctx.beginPath();
+    rctx.moveTo(0, 0);
+    rctx.arc(0, 0, R_COLOR_OUT, -Math.PI / 2, Math.PI / 2);
+    rctx.closePath();
+    rctx.fillStyle = '#c41e3a';
+    rctx.fill();
+    rctx.beginPath();
+    rctx.moveTo(0, 0);
+    rctx.arc(0, 0, R_COLOR_OUT, Math.PI / 2, Math.PI * 1.5);
+    rctx.closePath();
+    rctx.fillStyle = '#16161a';
+    rctx.fill();
+    rctx.beginPath();
+    rctx.arc(0, 0, R_COLOR_IN, 0, TAU);
+    g = rctx.createRadialGradient(-12, -12, 4, 0, 0, R_COLOR_IN);
+    g.addColorStop(0, '#9a6a33'); g.addColorStop(1, '#2b1a0c');
+    rctx.fillStyle = g;
+    rctx.fill();
+    rctx.strokeStyle = '#d4af37'; rctx.lineWidth = 2;
+    rctx.beginPath(); rctx.arc(0, 0, R_COLOR_OUT, 0, TAU); rctx.stroke();
+    // zlaté „kříže“ hlavice
+    rctx.strokeStyle = '#d4af37'; rctx.lineWidth = 6; rctx.lineCap = 'round';
+    for (let k = 0; k < 4; k++) {
+      rctx.rotate(Math.PI / 2);
+      rctx.beginPath(); rctx.moveTo(R_COLOR_IN * .22, 0); rctx.lineTo(R_COLOR_IN * .92, 0); rctx.stroke();
+    }
+    rctx.restore();
+
+    g = rctx.createRadialGradient(c - 8, c - 8, 2, c, c, 34);
+    g.addColorStop(0, '#fff2b0'); g.addColorStop(1, '#a8841a');
+    rctx.fillStyle = g;
+    rctx.beginPath(); rctx.arc(c, c, 34, 0, TAU); rctx.fill();
+
+    // kulička
+    let ball = null;   // { a, r, k }
+    const s = roulette.spin;
+    if (s) {
+      // časové razítko snímku může být o pár ms starší než s.t0, záporné p by shodilo kreslení
+      const p = Math.max(0, (now - s.t0) / s.T);
+      if (p >= 1) {
+        roulette.ball = { pocket: s.winner, offset: s.offset };
+        roulette.spin = null;
+        const done = roulette.onDone;
+        roulette.onDone = null;
+        if (done) done();
+      } else {
+        // kulička běží proti směru kola a zpomaluje; cílový úhel = střed vítězné přihrádky
+        const endAngle = rouletteWheelAt(s.t0 + s.T) + (s.winner + 0.5) * s.seg + s.offset;
+        const a = endAngle + s.turns * TAU * Math.pow(1 - p, 2.2);
+        let r = R_TRACK;
+        if (p >= 0.55) {
+          const q = (p - 0.55) / 0.45;
+          const e = q * q * (3 - 2 * q);
+          r = R_BALL_REST + (R_TRACK - R_BALL_REST) * (1 - e);
+          if (q > 0.6) r += 16 * (1 - q) * Math.abs(Math.sin((q - 0.6) * Math.PI * 6));
+        }
+        ball = { a, r, k: Math.min(1, p / 0.04) };
+      }
+    }
+    if (!ball && roulette.ball && roulette.ball.pocket < n) {
+      ball = {
+        a: wheel + (roulette.ball.pocket + 0.5) * seg + roulette.ball.offset,
+        r: R_BALL_REST, k: 1
+      };
+    }
+    if (ball) {
+      const bx = c + Math.cos(ball.a) * ball.r, by = c + Math.sin(ball.a) * ball.r;
+      const br = 13 * ball.k;
+      rctx.fillStyle = 'rgba(0,0,0,.35)';
+      rctx.beginPath(); rctx.arc(bx + 3, by + 4, br, 0, TAU); rctx.fill();
+      g = rctx.createRadialGradient(bx - br * .35, by - br * .35, 1, bx, by, br);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(.6, '#e6e6e6'); g.addColorStop(1, '#9a9a9a');
+      rctx.fillStyle = g;
+      rctx.beginPath(); rctx.arc(bx, by, br, 0, TAU); rctx.fill();
+    }
+  }
+
+  function rouletteSpin(winner) {
+    return new Promise((resolve) => {
+      startRoulette();
+      const seg = TAU / ROULETTE.length;
+      roulette.ball = null;   // stará kulička zmizí, nová vyjede na dráhu
+      roulette.onDone = resolve;
+      roulette.spin = {
+        t0: performance.now(), T: R_SPIN_MS + Math.random() * 1500,
+        winner, seg, offset: (Math.random() - .5) * seg * .4,
+        turns: 7 + Math.floor(Math.random() * 3)
+      };
+      // pojistka: kdyby se animace nedokončila (např. skrytá záložka), losování se dokončí samo
+      const s = roulette.spin;
+      setTimeout(() => {
+        if (roulette.spin !== s) return;
+        roulette.ball = { pocket: s.winner, offset: s.offset };
+        roulette.spin = null;
+        const done = roulette.onDone;
+        roulette.onDone = null;
+        if (done) done();
+      }, s.T + 1500);
+    });
+  }
+
+  async function spinRoulette(winner) {
+    try {
+      await rouletteSpin(winner);
+      await sleep(500);   // kulička chvíli „dosedá“ s kolem
+    } finally {
+      state.spinning = false;
+      spinBtn.disabled = !canSpin();
+    }
+    showResult(winner);
+  }
+
+  /* ---------- Tahání karet ---------- */
+  const DECK_SIZE = 12;
+  const deck = [];                 // vizuální hromádka { el, front }
+  let chosenCard = null;
+
+  function cardTransform({ x = 0, y = 0, r = 0, s = 1, f = 0 }) {
+    return `translate(-50%, -50%) translate(${x}%, ${y}%) rotate(${r}deg) scale(${s}) rotateY(${f}deg)`;
+  }
+  const stackPose = (i) => ({ x: i * 0.35, y: -i * 0.5 });
+
+  function buildDeck() {
+    const box = $('deckBox');
+    box.innerHTML = '';
+    deck.length = 0;
+    for (let i = 0; i < DECK_SIZE; i++) {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.innerHTML =
+        '<div class="card-face card-back"><span>?</span></div>' +
+        '<div class="card-face card-front">' +
+          '<div class="corner tl"><span class="rank"></span><span class="suit"></span></div>' +
+          '<div class="card-center-suit"></div>' +
+          '<div class="corner br"><span class="rank"></span><span class="suit"></span></div>' +
+        '</div>';
+      el.style.transform = cardTransform(stackPose(i));
+      el.style.zIndex = String(i);
+      box.appendChild(el);
+      deck.push({ el, front: el.querySelector('.card-front') });
+    }
+  }
+
+  function paintCardFace(cardEl, data) {
+    const front = cardEl.front;
+    front.classList.toggle('is-red', data.red);
+    front.classList.toggle('is-black', !data.red);
+    front.querySelectorAll('.rank').forEach((n) => { n.textContent = data.rank; });
+    front.querySelectorAll('.suit').forEach((n) => { n.textContent = data.suit; });
+    front.querySelector('.card-center-suit').textContent = data.suit;
+  }
+
+  function fitCards() {
+    $('cardsFace').style.setProperty('--cw', ($('stage').clientWidth * 0.26) + 'px');
+  }
+
+  function moveCard(card, pose, ms, delay = 0, easing = 'cubic-bezier(.4, 0, .2, 1)') {
+    const to = cardTransform(pose);
+    const anim = card.el.animate(
+      [{ transform: card.el.style.transform }, { transform: to }],
+      { duration: ms, delay, easing, fill: 'both' }
+    );
+    return anim.finished
+      .then(() => { card.el.style.transform = to; anim.cancel(); })
+      .catch(() => {});
+  }
+
+  function restackZ() { deck.forEach((c, i) => { c.el.style.zIndex = String(i); }); }
+
+  function gatherDeck(ms) {
+    return Promise.all(deck.map((c, i) => moveCard(c, stackPose(i), ms)));
+  }
+
+  async function shuffleRound() {
+    const half = Math.ceil(deck.length / 2);
+    await Promise.all(deck.map((c, i) => {
+      const left = i < half, j = left ? i : i - half;
+      return moveCard(c, {
+        x: (left ? -62 : 62) + j * 0.35, y: -j * 0.5, r: left ? -7 : 7
+      }, 280);
+    }));
+    const a = deck.slice(0, half), b = deck.slice(half), merged = [];
+    for (let k = 0; k < half; k++) {
+      merged.push(a[k]);
+      if (b[k]) merged.push(b[k]);
+    }
+    deck.splice(0, deck.length, ...merged);
+    restackZ();
+    await Promise.all(deck.map((c, i) => moveCard(c, stackPose(i), 240, i * 22)));
+  }
+
+  async function pickCard(data) {
+    const idx = 3 + Math.floor(Math.random() * (deck.length - 6));
+    const card = deck[idx], base = stackPose(idx);
+    paintCardFace(card, data);
+    card.el.style.zIndex = '100';
+    await moveCard(card, { x: base.x + 78, y: base.y - 6, r: 9, s: 1.05 }, 380);
+    await moveCard(card, { x: 0, y: 0, r: 0, s: 1.7, f: 180 }, 900, 0, 'cubic-bezier(.3, .1, .2, 1)');
+    chosenCard = card;
+  }
+
+  async function spinCards(winner) {
+    const data = state.cardDeck[winner];
+    try {
+      if (chosenCard) {
+        await gatherDeck(380);
+        chosenCard = null;
+        restackZ();
+      }
+      for (let k = 0; k < 3; k++) await shuffleRound();
+      await sleep(250);
+      await pickCard(data);
+      await sleep(700);
+    } finally {
+      state.spinning = false;
+      spinBtn.disabled = !canSpin();
+    }
+    showResult(winner);
+  }
+
+  $('reshuffleBtn').addEventListener('click', () => {
+    if (state.spinning) return;
+    state.cardDeck = shuffleInPlace(buildFullDeck());
+    if (chosenCard) {
+      gatherDeck(280).then(() => { chosenCard = null; restackZ(); });
+    }
+    updateCardsCount();
+    save();
+  });
+
+  /* ---------- Kostky (3×, součet) ---------- */
+  const DICE_COUNT = 3;
+  /* Původní 3/4 pohled; výsledek = horní stěna (CSS 3D znaménka ověřena). */
+  const FACE_ROT = {
+    1: 'rotateX(90deg)',
+    2: 'rotateZ(90deg)',
+    3: 'rotateX(0deg) rotateY(0deg)',
+    4: 'rotateX(180deg)',
+    5: 'rotateZ(-90deg)',
+    6: 'rotateX(-90deg)'
+  };
+  const DIE_REST = 'rotateX(-18deg) rotateY(28deg)';
+  const diceEls = [];   // { root, inner }
+
+  function makeDieFace(value) {
+    const face = document.createElement('div');
+    face.className = 'die-face';
+    face.dataset.v = String(value);
+    const pips = document.createElement('div');
+    pips.className = 'pips';
+    for (let i = 0; i < value; i++) {
+      const pip = document.createElement('span');
+      pip.className = 'pip';
+      pips.appendChild(pip);
+    }
+    face.appendChild(pips);
+    return face;
+  }
+
+  function buildDice() {
+    const table = $('diceTable');
+    table.innerHTML = '';
+    diceEls.length = 0;
+    const faceMap = [
+      ['front', 1], ['back', 6], ['right', 2], ['left', 5], ['top', 3], ['bottom', 4]
+    ];
+    for (let i = 0; i < DICE_COUNT; i++) {
+      const root = document.createElement('div');
+      root.className = 'die';
+      root.style.transform = DIE_REST;
+      root.style.animationDelay = (i * 80) + 'ms';
+      const inner = document.createElement('div');
+      inner.className = 'die-inner';
+      faceMap.forEach(([cls, v]) => {
+        const f = makeDieFace(v);
+        f.classList.add(cls);
+        inner.appendChild(f);
+      });
+      root.appendChild(inner);
+      table.appendChild(root);
+      diceEls.push({ root, inner });
+      setDieFace(inner, 1 + (i % 6));
+    }
+  }
+
+  function setDieFace(inner, value) {
+    inner.style.transform = FACE_ROT[value] || FACE_ROT[1];
+  }
+
+  function rollOneDie(die, value, delay) {
+    return new Promise((resolve) => {
+      die.root.classList.remove('rolling');
+      void die.root.offsetWidth;
+      die.root.style.animationDelay = delay + 'ms';
+      die.root.classList.add('rolling');
+      const flicker = setInterval(() => {
+        setDieFace(die.inner, 1 + Math.floor(Math.random() * 6));
+      }, 90);
+      setTimeout(() => {
+        clearInterval(flicker);
+        setDieFace(die.inner, value);
+        die.root.classList.remove('rolling');
+        die.root.style.transform = DIE_REST;
+        resolve();
+      }, 1150 + delay);
+    });
+  }
+
+  async function spinDice() {
+    lastDice = Array.from({ length: DICE_COUNT }, () => 1 + Math.floor(Math.random() * 6));
+    try {
+      await Promise.all(diceEls.map((d, i) => rollOneDie(d, lastDice[i], i * 90)));
+      await sleep(350);
+    } finally {
+      state.spinning = false;
+      spinBtn.disabled = !canSpin();
+    }
+    showResult(0);
+  }
+
+  /* ---------- historie v panelu ---------- */
+  function formatHistoryWhen(ts) {
+    return ts
+      ? new Date(ts).toLocaleString('cs-CZ', {
+          day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        })
+      : '';
+  }
+
+  function renderHistory() {
+    const hist = gameHistory();
+    const cols = Math.max(
+      playerCount(),
+      1,
+      ...hist.map((h) => (Array.isArray(h.players) ? h.players.length : 1))
+    );
+    const list = $('historyList');
+    const head = $('historyHeadRow');
+    list.innerHTML = '';
+    head.innerHTML = '';
+    $('historyScroll').hidden = hist.length === 0;
+    $('historyEmpty').hidden = hist.length > 0;
+    $('historyEmpty').textContent = state.pendingRound[state.mode]
+      ? 'Probíhá kolo — řádek se doplní, až zahrají všichni hráči.'
+      : 'Zatím žádné dokončené kolo v této hře.';
+
+    const thNum = document.createElement('th');
+    thNum.className = 'num';
+    thNum.textContent = 'Hra';
+    head.appendChild(thNum);
+    for (let i = 1; i <= cols; i++) {
+      const th = document.createElement('th');
+      th.textContent = 'Hráč ' + i;
+      head.appendChild(th);
+    }
+    const thWhen = document.createElement('th');
+    thWhen.className = 'when';
+    const sortBtn = document.createElement('button');
+    sortBtn.type = 'button';
+    sortBtn.className = 'th-sort';
+    sortBtn.title = 'Změnit řazení podle data';
+    sortBtn.innerHTML = 'Datum <span class="arrow" aria-hidden="true"></span>';
+    sortBtn.addEventListener('click', () => {
+      state.historyAsc = !state.historyAsc;
+      save();
+      renderHistory();
+      $('historyScroll').scrollTop = 0;
+    });
+    thWhen.appendChild(sortBtn);
+    head.appendChild(thWhen);
+
+    const rows = hist.map((h, idx) => ({ h, n: hist.length - idx }));
+    if (state.historyAsc) rows.reverse();
+    const arrow = state.historyAsc ? '▲' : '▼';
+    head.querySelectorAll('.th-sort .arrow').forEach((a) => { a.textContent = arrow; });
+
+    rows.forEach(({ h, n }) => {
+      const tr = document.createElement('tr');
+      const num = document.createElement('td');
+      num.className = 'num';
+      num.textContent = String(n);
+      tr.appendChild(num);
+      for (let i = 0; i < cols; i++) {
+        const td = document.createElement('td');
+        td.className = 'score';
+        td.textContent = (h.players && h.players[i] != null) ? h.players[i] : '—';
+        tr.appendChild(td);
+      }
+      const when = document.createElement('td');
+      when.className = 'when';
+      when.textContent = formatHistoryWhen(h.ts);
+      tr.appendChild(when);
+      list.appendChild(tr);
+    });
+    $('resetBtn').disabled = historyIsEmpty();
+  }
+
+  $('spinBtn').addEventListener('click', spin);
+  canvas.addEventListener('click', spin);
+
+  /* ---------- potvrzovací modal ---------- */
+  const confirmModal = $('confirmModal');
+  let onConfirm = null;
+  function askConfirm(message, yesLabel, callback) {
+    $('confirmText').textContent = message;
+    $('confirmYes').textContent = yesLabel;
+    onConfirm = callback;
+    confirmModal.showModal();
+  }
+  $('confirmNo').addEventListener('click', () => confirmModal.close());
+  $('confirmYes').addEventListener('click', () => {
+    const cb = onConfirm;
+    onConfirm = null;
+    confirmModal.close();
+    if (cb) cb();
+  });
+  confirmModal.addEventListener('close', () => { onConfirm = null; });
+
+  $('resetBtn').addEventListener('click', () => {
+    if (state.spinning || (gameHistory().length === 0 && !state.pendingRound[state.mode])) return;
+    const title = GAME_TITLES[state.mode] || 'tuto hru';
+    askConfirm('Opravdu smazat historii hry „' + title + '“? Ostatní hry zůstanou.', 'Smazat historii', () => {
+      state.rotation = 0;
+      state.histories[state.mode] = [];
+      state.pendingRound[state.mode] = null;
+      state.currentPlayer[state.mode] = 1;
+      updateTurnBanner();
+      renderHistory();
+      save();
+      draw();
+    });
+  });
+
+  $('playerCountInput').addEventListener('change', (e) => {
+    if (state.spinning) {
+      e.target.value = String(playerCount());
+      return;
+    }
+    setPlayerCount(e.target.value);
+  });
+  $('playerCountInput').addEventListener('input', (e) => {
+    if (state.spinning) return;
+    const v = clampPlayers(e.target.value);
+    if (String(v) === e.target.value || e.target.value === '') {
+      if (e.target.value !== '') setPlayerCount(v);
+    }
+  });
+  $('clearBtn').addEventListener('click', () => {
+    if (state.spinning || state.items.length === 0) return;
+    askConfirm('Opravdu vymazat všechny položky v tomto seznamu?', 'Vymazat', () => {
+      setItems([]);
+      textarea.focus();
+    });
+  });
+  confirmModal.addEventListener('click', (e) => { if (e.target === confirmModal) confirmModal.close(); });
+
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (!state.theme) applyTheme();
+  });
+
+  $('mrcFinale').addEventListener('change', (e) => {
+    if (state.spinning) {
+      e.target.checked = state.mrcFinale;
+      return;
+    }
+    state.mrcFinale = e.target.checked;
+    save();
+    updateHints();
+    draw();
+  });
+
+  /* ---------- start ---------- */
+  load();
+  $('mrcFinale').checked = state.mrcFinale;
+  renderPresetTabs();
+  buildDeck();
+  buildDice();
+  setMode(state.mode);
+  syncTextarea();
+  renderHistory();
+  applyTheme();
+  onItemsChanged(false);
+  setView('home');
+})();
+</script>
+<script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</body>
+</html>
